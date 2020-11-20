@@ -1,0 +1,181 @@
+Entity,Code,Year,Gini equivalised disposable household income entire pop (Incomes across the Distribution Database (2016)),Gini equivalised market household income entire pop (Incomes across the Distribution Database (2016))
+Australia,AUS,1981,0.282,0.405
+Australia,AUS,1985,0.293,0.44
+Australia,AUS,1989,0.304,0.44
+Australia,AUS,1995,0.311,0.483
+Australia,AUS,2001,0.32,0.498
+Australia,AUS,2003,0.316,0.487
+Australia,AUS,2008,0.336,0.491
+Australia,AUS,2010,0.334,0.492
+Austria,AUT,1994,0.282,0.447
+Austria,AUT,1997,0.267,0.437
+Austria,AUT,2000,0.258,0.433
+Austria,AUT,2004,0.269,0.465
+Belgium,BEL,1985,0.228,0.42
+Belgium,BEL,1988,0.234,0.429
+Belgium,BEL,1992,0.229,0.459
+Belgium,BEL,1995,0.269,0.476
+Belgium,BEL,1997,0.251,0.486
+Belgium,BEL,2000,0.318,0.517
+Canada,CAN,1981,0.286,0.384
+Canada,CAN,1987,0.283,0.408
+Canada,CAN,1991,0.282,0.429
+Canada,CAN,1994,0.285,0.451
+Canada,CAN,1997,0.292,0.452
+Canada,CAN,1998,0.313,0.484
+Canada,CAN,2000,0.318,0.476
+Canada,CAN,2004,0.32,0.483
+Canada,CAN,2007,0.318,0.481
+Canada,CAN,2010,0.318,0.489
+Czech Republic,CZE,1992,0.206,0.402
+Czech Republic,CZE,1996,0.257,0.434
+Czech Republic,CZE,2002,0.255,0.475
+Czech Republic,CZE,2004,0.267,0.479
+Czech Republic,CZE,2007,0.252,0.458
+Czech Republic,CZE,2010,0.256,0.459
+Denmark,DNK,1987,0.257,0.419
+Denmark,DNK,1992,0.241,0.452
+Denmark,DNK,1995,0.222,0.453
+Denmark,DNK,2000,0.226,0.444
+Denmark,DNK,2004,0.23,0.454
+Denmark,DNK,2007,0.242,0.449
+Denmark,DNK,2010,0.254,0.48
+Estonia,EST,2000,0.364,
+Estonia,EST,2004,0.35,0.508
+Estonia,EST,2007,0.316,0.456
+Estonia,EST,2010,0.326,0.495
+Finland,FIN,1987,0.207,0.39
+Finland,FIN,1991,0.209,0.409
+Finland,FIN,1995,0.217,0.483
+Finland,FIN,2000,0.256,0.481
+Finland,FIN,2004,0.266,0.488
+Finland,FIN,2007,0.267,0.477
+Finland,FIN,2010,0.264,0.487
+France,FRA,1978,0.319,0.45
+France,FRA,1984,0.348,0.518
+France,FRA,1989,0.293,0.489
+France,FRA,1994,0.29,0.495
+France,FRA,2000,0.278,0.491
+France,FRA,2005,0.281,0.486
+France,FRA,2010,0.292,0.511
+Germany,DEU,1984,0.266,0.45
+Germany,DEU,1989,0.259,0.445
+Germany,DEU,1994,0.27,0.465
+Germany,DEU,2000,0.267,0.479
+Germany,DEU,2004,0.288,0.511
+Germany,DEU,2007,0.294,0.523
+Germany,DEU,2010,0.289,0.523
+Greece,GRC,1995,0.355,0.477
+Greece,GRC,2000,0.335,0.467
+Greece,GRC,2004,0.329,0.472
+Greece,GRC,2007,0.322,0.496
+Greece,GRC,2010,0.338,0.532
+Hungary,HUN,1991,0.289,0.478
+Hungary,HUN,1994,0.322,0.554
+Hungary,HUN,1999,0.292,0.518
+Hungary,HUN,2005,0.291,0.538
+Hungary,HUN,2007,0.277,0.611
+Hungary,HUN,2009,0.279,0.618
+Hungary,HUN,2012,0.293,0.624
+Iceland,ISL,2004,0.257,0.377
+Iceland,ISL,2007,0.28,0.385
+Iceland,ISL,2010,0.246,0.405
+Ireland,IRL,1987,0.33,
+Ireland,IRL,1994,0.339,0.511
+Ireland,IRL,1995,0.345,0.505
+Ireland,IRL,1996,0.334,0.496
+Ireland,IRL,2000,0.314,0.445
+Ireland,IRL,2004,0.325,0.513
+Ireland,IRL,2007,0.303,0.514
+Ireland,IRL,2010,0.296,0.578
+Israel,ISR,1986,0.31,0.487
+Israel,ISR,1992,0.305,0.48
+Israel,ISR,1997,0.337,0.507
+Israel,ISR,2001,0.35,0.55
+Israel,ISR,2005,0.377,0.537
+Israel,ISR,2007,0.369,0.525
+Israel,ISR,2010,0.387,0.533
+Italy,ITA,1986,0.31,0.43
+Italy,ITA,1987,0.334,0.457
+Italy,ITA,1989,0.304,0.431
+Italy,ITA,1991,0.292,0.42
+Italy,ITA,1993,0.343,0.478
+Italy,ITA,1995,0.343,0.482
+Italy,ITA,1998,0.356,0.496
+Italy,ITA,2000,0.342,0.488
+Italy,ITA,2004,0.347,0.517
+Italy,ITA,2008,0.332,0.487
+Italy,ITA,2010,0.331,0.501
+Luxembourg,LUX,1985,0.238,0.379
+Luxembourg,LUX,1991,0.239,0.374
+Luxembourg,LUX,1994,0.235,0.391
+Luxembourg,LUX,1997,0.261,0.436
+Luxembourg,LUX,2000,0.262,0.432
+Luxembourg,LUX,2004,0.27,0.458
+Luxembourg,LUX,2007,0.277,0.463
+Luxembourg,LUX,2010,0.269,0.468
+Netherlands,NLD,1993,0.262,0.468
+Netherlands,NLD,1999,0.232,0.432
+Netherlands,NLD,2004,0.267,0.469
+Netherlands,NLD,2007,0.277,0.48
+Netherlands,NLD,2010,0.257,0.469
+Norway,NOR,1979,0.226,0.38
+Norway,NOR,1986,0.235,0.366
+Norway,NOR,1991,0.233,0.397
+Norway,NOR,1995,0.243,0.431
+Norway,NOR,2000,0.261,0.443
+Norway,NOR,2004,0.283,0.479
+Norway,NOR,2007,0.247,0.445
+Norway,NOR,2010,0.251,0.457
+Poland,POL,1992,0.262,0.422
+Poland,POL,1995,0.324,0.569
+Poland,POL,1999,0.292,
+Poland,POL,2004,0.319,
+Poland,POL,2007,0.316,0.516
+Poland,POL,2010,0.314,0.499
+Slovakia,SVK,1992,0.189,0.404
+Slovakia,SVK,1996,0.249,
+Slovakia,SVK,2004,0.269,0.455
+Slovakia,SVK,2007,0.248,0.419
+Slovakia,SVK,2010,0.265,0.435
+Slovenia,SVN,1997,0.229,0.369
+Slovenia,SVN,1999,0.232,0.375
+Slovenia,SVN,2004,0.231,0.399
+Slovenia,SVN,2007,0.23,0.399
+Slovenia,SVN,2010,0.253,0.419
+Spain,ESP,1980,0.321,0.42
+Spain,ESP,1985,0.315,
+Spain,ESP,1990,0.305,0.43
+Spain,ESP,1995,0.358,0.513
+Spain,ESP,2000,0.337,0.482
+Spain,ESP,2004,0.322,0.455
+Spain,ESP,2007,0.309,0.451
+Spain,ESP,2010,0.339,0.513
+Sweden,SWE,1981,0.198,0.413
+Sweden,SWE,1987,0.213,0.437
+Sweden,SWE,1992,0.229,0.468
+Sweden,SWE,1995,0.222,0.5
+Sweden,SWE,2000,0.257,0.485
+Sweden,SWE,2005,0.239,0.477
+Switzerland,CHE,2000,0.285,
+Switzerland,CHE,2002,0.273,
+Switzerland,CHE,2004,0.268,
+United Kingdom,GBR,1979,0.267,0.418
+United Kingdom,GBR,1986,0.304,0.509
+United Kingdom,GBR,1991,0.34,0.512
+United Kingdom,GBR,1994,0.344,0.547
+United Kingdom,GBR,1995,0.346,0.547
+United Kingdom,GBR,1999,0.353,0.546
+United Kingdom,GBR,2004,0.354,0.545
+United Kingdom,GBR,2007,0.343,0.547
+United Kingdom,GBR,2010,0.341,0.566
+United States,USA,1979,0.311,0.433
+United States,USA,1986,0.342,0.464
+United States,USA,1991,0.347,0.474
+United States,USA,1994,0.372,0.505
+United States,USA,1997,0.374,0.502
+United States,USA,2000,0.372,0.498
+United States,USA,2004,0.377,0.508
+United States,USA,2007,0.383,0.5
+United States,USA,2010,0.373,0.525
+United States,USA,2013,0.383,0.529
