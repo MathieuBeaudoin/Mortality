@@ -1,0 +1,608 @@
+---
+title: "What do people die from?"
+subtitle: "An exploratory data analysis"
+author: "Mathieu Beaudoin"
+date: "November 24, 2020"
+output: 
+  prettydoc::html_pretty:
+    toc: true
+    theme: cayman
+---
+  
+---
+  
+# Foreword
+
+In this analysis, we will explore a [dataset](https://ourworldindata.org/causes-of-death#what-do-people-die-from) from OurWorldInData.org, regarding causes of death by country, from 1990 to 2016. We hypothesize that certain causes will tend to cluster together:
+
+- developed countries have successfully reduced their mortality rates from causes that still afflict poorer countries, but in turn their citizens tend to die more of age-related illness
+- climate differences probably have an impact - while, in the cold, dark Canadian winter we may be dreaming of tropical climes, the cold also protects us from all sorts of critters and diseases that might otherwise kill us! 
+  
+---
+  
+# Setup
+
+```{r setup, echo=TRUE, message=FALSE}
+data_path <- paste0("https://raw.githubusercontent.com/MathieuBeaudoin/Mortality/main/Data/")
+dataset_name <- "annual-number-of-deaths-by-cause.csv"
+deaths <- read.csv(paste0(data_path, dataset_name), header=T)
+set.seed(42)
+
+packages <- c("corrplot", "FactoMineR", "factoextra", "ggplot2", "dplyr",
+              "mapproj", "gridExtra", "superheat", "RColorBrewer", "VIM")
+for(pkg in packages) library(pkg, character.only=T)
+```
+
+  
+---
+
+# Data Cleaning
+```{r change_colnames, echo=TRUE}
+colnames(deaths)
+causes <- c("Execution", "RoadInjuries", "ChronicLiverDis", "DigestiveDis",
+            "Tuberculosis", "HIV_AIDS", "DiarrhealDisease", "IntestinalInfectiousDis",
+            "LowerRespiratoryInfection", "Meningitis", "Drowning", "AlzheimerDis",
+            "ParkinsonDis", "AlcoholDisorder", "DrugDisorder", "Malaria", 
+            "MaternalDisorder", "NeonatalDisorder", "NutritionalDeficiency", 
+            "Diabetes", "ChronicKidneyDis", "ChronicRespiratoryDis", "Conflict",
+            "Hepatitis", "Neoplasm", "FireHeatHotSubstances", "Poisoning", 
+            "ExposureToForcesOfNature", "EnvironmentalHeatColdExposure", 
+            "ProteinEnergyMalnutrition", "CardiovascularDis", "SelfHarm",
+            "InterpersonalViolence", "Terrorism")
+colnames(deaths)[-(1:3)] <- causes
+summary(deaths)
+```
+
+"Code" is missing for 1141 lines. Can we exclude this column?
+```{r missing_Code, echo=TRUE}
+unique(deaths[which(deaths$Code==""), "Entity"])
+```
+
+It seems the absence of a code refers to entities that either no longer exist, or that duplicate the data of individual countries. Let's remove these and drop the "Code" column.
+```{r clean_Code, echo=TRUE}
+deaths <- deaths %>%
+  filter(Code != "") %>%
+  select(-Code)
+```
+
+Do we need to eliminate other entities to avoid overlapping data?
+```{r unique_Entities, echo=TRUE, results='hide'}
+unique(deaths$Entity) # (output hidden for concision)
+```
+
+We have both the Czech Republic and Czechoslovakia. Do the years overlap?
+```{r unique_Czech, echo=TRUE, results='hold'}
+unique(deaths[deaths$Entity == "Czech Republic", ]$Year)
+unique(deaths[deaths$Entity == "Czechoslovakia", ]$Year)
+```
+
+What about Russia and the USSR?
+```{r unique_Russia, echo=TRUE, results='hold'}
+unique(deaths[deaths$Entity == "Russia", ]$Year)
+unique(deaths[deaths$Entity == "USSR", ]$Year)
+```
+
+We will drop Czechoslovakia and the USSR from the dataset, then. A number of entities are part of another one, so we will also eliminate these.
+```{r clean_Entities, echo=TRUE}
+exclude <- c("Czechoslovakia", "USSR", "French Guiana", "French Polynesia",
+             "Greenland", "Guam", "Hong Kong", "Northern Mariana Islands",
+             "Puerto Rico", "United States Virgin Islands", "Wallis and Futuna",
+             "Western Sahara")
+deaths <- deaths[-which(deaths$Entity %in% exclude), ]
+```
+
+We had a lot of missing values in the "Execution" column. Is this still the case?
+```{r, echo=TRUE}
+sum(deaths$Execution == "")
+```
+
+Can these missing values be imputed as 0?
+```{r, echo=TRUE}
+head(filter(deaths, Execution == "")[, c("Entity", "Year")], 10)
+```
+
+No executions in Afghanistan in the 90's? That seems unlikely. Let's just drop this one.
+```{r remove_Executions, echo=TRUE}
+deaths <- select(deaths, -Execution)
+```
+
+Let's see what the remaining data looks like:
+```{r, echo=TRUE}
+str(deaths)
+```
+
+Deaths should be a discrete variable, not a continuous one. However:  
+
+> "The Global Burden of Disease is a major global study on the causes of death and disease published in the medical journal The Lancet. These **estimates** [emphasis added] of the annual number of deaths by cause are shown here." *([from the description of the dataset](https://ourworldindata.org/causes-of-death))*   
+   
+Now let's check for NA's:
+```{r NAs_1, echo=TRUE}
+rownames(deaths) <- apply(deaths[,1:2], 1, function(v) paste0(v[1], v[2]))
+mean(is.na(deaths))
+```
+
+How are they distributed?
+```{r NAs_2, echo=TRUE, results='hold'}
+check_NA_dist <- function(df) {
+  return(c(rows=mean(apply(df, 1, function(v) sum(is.na(v)) > 0)),
+           cols=mean(apply(df, 2, function(v) sum(is.na(v)) > 0))))
+}
+check_NA_dist(deaths)
+```
+
+Removing entire rows or columns would drastically reduce the amount of data we have. Let's see if certain columns cause more than their fair share of problems:
+```{r NAs_3, echo=TRUE}
+na_dist <- data.frame(prop_na=apply(deaths, 2, function(v) mean(is.na(v))))
+na_dist[order(na_dist$prop_na, decreasing=T)[1:3], , drop=F]
+```
+
+"Terrorism" seems to be the biggest culprit. How many rows still have NA's if we remove this column?
+```{r NAs_4, echo=TRUE}
+mean(apply(deaths[, colnames(deaths) != "Terrorism"], 1, function(v) sum(is.na(v)) > 0))
+```
+
+4.2% of rows seems like an OK price to pay to remove all NA's from our data. Let's do it:
+```{r NAs_5, echo=TRUE}
+deaths <- deaths[, colnames(deaths) != "Terrorism"]
+deaths <- deaths[apply(deaths, 1, function(v) sum(is.na(v)) == 0), ]
+```
+   
+
+---
+
+# Overview of the data
+
+Now that our data is clean, let's see what the leading causes of death are, in absolute terms:
+```{r overview_absolute, echo=TRUE, fig.width=10, fig.align='center'}
+D <- as.matrix(deaths[, -(1:2)])
+freq <- head(sort(colSums(D), decreasing=T), 10)
+(leading_causes <- as.data.frame(freq))
+par(mar=c(5,11,2,2))
+barplot(leading_causes$freq, names.arg=rownames(leading_causes), 
+        horiz=T, las=2, col="darkred",
+        main="Leading causes of death, 1990-2016")
+```
+   
+
+---
+
+# Basic correlations
+
+Let's now take a look at how these causes correlate with each other.
+```{r corr_raw, echo=TRUE, fig.align="center", fig.height=7}
+corrplot(cor(D, use="pairwise"), method="square", type="lower", tl.cex=.8, tl.col="black")
+```
+  
+All causes of death are positively correlated? That seems odd, but perhaps this is because of a population effect: countries with high populations will tend to have a high number of deaths, from *all* causes. Let's see what happens if we look instead at *relative* levels of causality:
+```{r corr_rel, echo=TRUE, fig.align="center", fig.height=7}
+D <- D / rowSums(D)
+corrplot(cor(D, use="pairwise"), method="square", type="lower", tl.cex=.8, tl.col="black")
+```
+   
+This is more interesting! Unsurprisingly, we see that some causes typically associated with old age - Alzheimer's/Parkinson's disease, cardiovascular disease, neoplasm (tumors) - are negatively correlated with causes typically associated with relatively less developed countries, such as communicable diseases and malnutrition.   
+
+---
+
+# Principal Component Analysis
+
+## Proportion of variance explained
+
+Let's see now what a simple PCA tells us:
+```{r PCA1, echo=TRUE, fig.align="center", fig.height=4}
+mort_PCA <- PCA(D, graph=F)
+round(as.vector(mort_PCA$eig[,2]),2)[1:12]
+barplot(mort_PCA$eig[,3], col="lightpink2", xlab="Principal Component",
+        ylab="Percentage of variance explained",
+        names.arg=1:dim(mort_PCA$eig)[1])
+barplot(mort_PCA$eig[,2], add=T, col="red", names.arg=1:dim(mort_PCA$eig)[1])
+abline(h=100, lty=2)
+```
+
+The first principal component explains a decent chunk of the variance (~32%), but the following ones much less.   
+
+## PCA plots
+
+Let's see how the variables plot against the two most important components (we will split this visualization between four graphs to avoid overcrowding):
+```{r PCA2, echo=TRUE, fig.height=10, fig.width=10}
+circle_viz <- function(n) {
+  N <- as.integer(dim(mort_PCA$eig)[1] / n)
+  lapply(0:(n-1), function(i) {
+    of_interest <- (1:N) + N*i
+    fviz_pca_var(mort_PCA, col.var="cos2", repel=T, gradient.cols=c("red","darkgreen"),
+                 select.var=list(name=causes[of_interest]))  
+  })
+} 
+plots <- circle_viz(4)
+grid.arrange(grobs=plots, nrow=2, ncol=2)
+```
+  
+We notice that causes that were strongly negatively (and positively) correlated are well projected on the axis of the first principal component, in the opposite (and respectively same) direction. This first component is probably related to the level of economic development.  
+
+Looking at the second principal component, although the variables' projections are too weak to draw strong conclusions, it looks like this dimension has something to do with individuals' propensity for risk-taking and unhealthy habits: accidental or lifestyle-related causes of death seem to score relatively high on this axis, while old-age related causes (except for cardiovascular disease!) have negative values. This chimes with our intuition that although economic factors might be the biggest driver of differences, individual attitudes and habits are also significant.  
+  
+We will not extend our PCA to projecting observations, as the sheer number of observations would force any readable graph of observations' projections (nevermind biplots!) to include only a tiny fraction of the data. When it comes to observations, we are much likelier to find insights or trends using clustering methods.
+  
+  
+
+---
+
+# Clustering
+
+## Variables
+
+### Number of clusters to use
+
+How many clusters should we use?  
+```{r clustering1, echo=TRUE, fig.align = "center", fig.height=4}
+D_scaled_vars <- (D - rowMeans(D)) / apply(D, 1, sd)
+fviz_nbclust(D_scaled_vars, kmeans, method="wss")
+```
+   
+It does not look like having more than 5 clusters is worth it.   
+
+### Dendrograms
+
+Using hierarchical clustering, let's look at the categories we get using various aggregation methods:
+```{r clustering2, echo=TRUE, fig.height=10, fig.width=10}
+dendrogram <- function(methods, k, dist_) {
+  lapply(methods, function(method) {
+    clusters <- hclust(d=dist_, method=method)
+    fviz_dend(clusters, k=k, cex=.7, horiz=T, k_colors="jco", rect=T, rect_borders="jco",
+              rect_fill=T, main=paste0("Cluster Dendrogram (", method, " method)"))
+  })
+}
+var_dist <- dist(t(D_scaled_vars), method="euclidean")
+methods <- c("single", "average", "complete", "ward.D2")
+plots <- dendrogram(methods, 5, var_dist)
+grid.arrange(grobs=plots, nrow=2, ncol=2)
+```
+   
+Whichever method we use, cardiovascular disease, neoplasms and HIV/AIDS each have their own category, while almost everything else gets bunched into the same category.  
+
+### K-means
+
+Let's see if we get anything more interesting using the K-means algorithm:
+```{r clustering3, echo=TRUE, fig.align = "center"}
+var_groups <- kmeans(t(D_scaled_vars), 5, nstart=100)
+fviz_cluster(var_groups, data=t(D_scaled_vars), star.plot=T,
+             repel=T, ggtheme=theme_minimal())
+```
+  
+...Not really! It doesn't look like clustering causes of death will yield many insights. We might have better luck clustering country-year pairs on the basis of relative causes of mortality.
+
+## Observations
+
+### Number of clusters to use
+```{r clustering4, echo=TRUE, fig.align = "center", fig.height=4}
+D_scaled_obs <- t((t(D) - colMeans(D)) / apply(D, 2, sd))
+fviz_nbclust(D_scaled_obs, kmeans, method="wss")
+```
+   
+It looks like either 6 or 8 would be a reasonable choice for a number of clusters. However, having 6 clusters rather than 8 should make the results more understandable.
+
+### K-means - stardard cluster visualization
+```{r clustering5, echo=TRUE}
+obs_groups <- kmeans(D_scaled_obs, 6, nstart=100)
+```
+For visualization, we will pick a sample of observations
+```{r clustering6, echo=TRUE, fig.width=10}
+cluster_sample <- function(n, size) {
+  lapply(1:n, function(i) {
+    obs_sample <- sample(1:dim(D_scaled_obs)[1], size, replace=F)
+    obs_sampled <- obs_groups
+    obs_sampled$cluster <- obs_groups$cluster[obs_sample]
+    fviz_cluster(obs_sampled, data=D_scaled_obs[obs_sample,], repel=T)
+  })
+}
+plots <- cluster_sample(2, 25)
+grid.arrange(grobs=plots, nrow=1, ncol=2)
+```
+  
+Some clusters stand out in their intuitive coherence: group #5 seems to include only African countries; group #6 seems to bunch together mostly middle-income tropical countries.
+
+### K-means - World map
+
+Perhaps these clusters will make more sense if we visualize them using a color-coded world map and fixed years.
+
+```{r clustering7, echo=TRUE, warning=FALSE, fig.width=10, fig.height=5}
+df <- data.frame(Cluster=as.factor(obs_groups$cluster))
+# We re-extract the keys rather pulling deaths[,1:2], to avoid index errors creeping in:
+keys <- t(sapply(rownames(df), function(str) {
+  n <- nchar(str)
+  c(Entity=substr(str, 1, n-4),
+    Year=substr(str, n-3, n))
+}))
+df <- cbind(df, keys)
+
+# Adapted from https://stackoverflow.com/questions/30706124/plotting-the-
+# world-map-in-r#30707148 - with slight adjustments for compatibility of mapping...
+WorldData <- map_data('world') %>%
+  filter(region != "Antarctica") %>%
+  mutate(region = case_when(
+    region == "USA" ~ "United States",
+    region == "Greenland" ~ "Denmark",
+    region == "Democratic Republic of the Congo" ~ "Democratic Republic of Congo",
+    region == "Republic of Congo" ~ "Congo",
+    TRUE ~ region
+  ))
+
+world_map_viz <- function(years) {
+  lapply(years, function(year) {
+    ggplot() +
+      geom_map(data = WorldData, map = WorldData,
+               aes(x = long, y = lat, group = group, map_id=region),
+               fill = "white", colour = "black", size=0.5) + 
+      geom_map(data = df[which(df$Year==year),], map=WorldData,
+               aes(fill=Cluster, map_id=Entity), size=0.5) +
+      coord_map("rectangular", lat0=0, xlim=c(-180,180), ylim=c(-60, 90)) +
+      scale_fill_manual(values=c("deeppink","dodgerblue1","darkorange3","gold2",
+                                 "darkolivegreen","darkorchid4")) +
+      labs(title = paste0("Groupings in ", year), x="", y="")
+  })
+}
+plots <- world_map_viz(c(1990, 1999, 2008, 2016))
+grid.arrange(grobs=plots, nrow=2, ncol=2)
+```
+   
+The clusters seem to make sense, in terms of geography and general standards of living:   
+
+- We have a collection of South/South-East Asian countries in group 1;
+- The former Soviet Union in group 2;
+- Mostly developed nations in group 3;
+- North Africa and the Middle East in group 4;
+- Sub-Saharan Africa in group 5;
+- Most of Latin America, with a smattering of mostly warm countries elsewhere in group 6; 
+
+That's all well, but what do people in each of these different clusters actually tend to die from?
+
+```{r clustering8, echo=TRUE}
+apply(obs_groups$centers, 1, function(x) names(sort(x, decreasing=T))[1:5])
+```
+  
+It turns out that the data seems to support stereotypes about Russia (and former Soviet satellites)..! However, it would be quite incredible if environmental exposure to heat or cold was the biggest cause of death there. These results therefore carry a useful reminder of what *exactly* we are looking at: these causes are not necessarily the top causes of death in the clusters to which they are associated, but rather the causes whose proportions of deaths are highest *relative to the average proportion of deaths these causes are responsible for throughout the dataset.* If we instead look at the absolute numbers, the top causes of death in Russia differ markedly from our previous results:  
+
+```{r clustering9, echo=TRUE}
+deaths %>%
+  filter(Entity == "Russia" & Year == 2016) %>%
+  select(-Entity, -Year) %>%
+  sort(decreasing=T) %>%
+  t %>% head %>% round
+```
+  
+  
+---
+
+# Relationships With Other Factors
+
+Let's now expand our analysis to see what factors might play a role in these differences. We will bring in the following datasets, all from OurWorldInData.org:
+
+* [Wealth (GNI per capita)](https://ourworldindata.org/human-development-index#standard-of-living)
+* Social:
+  + [Government spending, as a share of GDP](https://ourworldindata.org/grapher/historical-gov-spending-gdp)
+  + [Social spending categories, as shares of GDP](https://ourworldindata.org/grapher/social-expenditure-as-percentage-of-gdp)
+  + [Trust (share of people agreeing with the statement "most people can be trusted")](https://ourworldindata.org/grapher/self-reported-trust-attitudes)
+  + [Inequality (Gini coefficient, before and net of redistributive policies)](https://ourworldindata.org/grapher/inequality-before-and-after-taxes-and-transfers-thewissen-et-al-data)
+* Corruption:
+  + [Bribery rates (share of people reporting having had to pay a bribe in the past year)](https://ourworldindata.org/grapher/bribery-rates)
+  + [Corruption Perception Index (Transparency International)](https://ourworldindata.org/grapher/ti-corruption-perception-index)
+* [Human Rights](https://ourworldindata.org/grapher/human-rights-scores)
+* Pollution:
+  + [Access to clean fuels/technologies for cooking (inverse proxy for indoor air pollution)](https://ourworldindata.org/indoor-air-pollution#only-60-of-the-world-has-access-to-clean-cooking-fuels)
+  + [Mean annual exposure to PM2.5 air pollution (micrograms per cubic meter)](https://ourworldindata.org/outdoor-air-pollution#concentrations-of-air-pollution)
+* Sanition:
+  + [Share of population practicing open defecation](https://ourworldindata.org/sanitation#open-defecation)
+  + [Share of population with access to improved sanitation facilities](https://ourworldindata.org/sanitation#access-to-improved-sanitation)
+* Water:
+  + [Share of population with access to an improved water source water](https://ourworldindata.org/water-access#what-share-of-people-have-access-to-an-improved-water-source)
+  + [Share of population using safely managed drinking water](https://ourworldindata.org/water-access#access-to-safe-drinking-water)
+* Nutrition:
+  + [Per capita consumption of different cereal types](https://ourworldindata.org/grapher/per-capita-consumption-of-cereals-by-commodity-type-daily-kilocalories)
+  + [Per capita supply of vegetables (kg/year)](https://ourworldindata.org/grapher/vegetable-consumption-per-capita)
+  + [Per capita supply of fruits (kg/year)](https://ourworldindata.org/grapher/fruit-consumption-per-capita)
+  + [Daily caloric supply from carbohydrates, protein and fat](https://ourworldindata.org/grapher/daily-caloric-supply-derived-from-carbohydrates-protein-and-fat)
+  + [Dietary composition (kcal/day)](https://ourworldindata.org/grapher/dietary-compositions-by-commodity-group)
+
+## Loading and taking a first look at the data
+
+```{r relatedSets_setup, echo=TRUE}
+datasets <- list(wealth="gross-national-income-per-capita.csv",
+                 # Social
+                 gov_spending="historical-gov-spending-gdp.csv",
+                 social_spending="social-expenditure-as-percentage-of-gdp.csv",
+                 trust="self-reported-trust-attitudes.csv",
+                 inequality="inequality-before-and-after-taxes-and-transfers-Thewissen-et-al-data.csv",
+                 # Corruption
+                 bribery="bribery-rates.csv",
+                 corr_perc_index="TI-corruption-perception-index.csv",
+                 # Human Rights
+                 human_rights="human-rights-scores.csv",
+                 # Pollution
+                 cooking_fuel="access-to-clean-fuels-and-technologies-for-cooking.csv",
+                 PM25="PM25-air-pollution.csv",
+                 # Sanitation
+                 open_defecation="people-practicing-open-defecation-of-population.csv",
+                 sanitation_access="share-of-population-with-improved-sanitation-facilities.csv",
+                 # Water
+                 improved_water="share-of-the-population-with-access-to-improved-drinking-water.csv",
+                 safe_drinking_water="proportion-using-safely-managed-drinking-water.csv",
+                 # Nutrition
+                 cereals="per-capita-consumption-of-cereals-by-commodity-type-daily-kilocalories.csv",
+                 vegetables="vegetable-consumption-per-capita.csv",
+                 fruits="fruit-consumption-per-capita.csv",
+                 calories="daily-caloric-supply-derived-from-carbohydrates-protein-and-fat.csv",
+                 diet_composition="dietary-compositions-by-commodity-group.csv")
+
+for(i in 1:length(datasets)) {
+  this_data <- names(datasets)[i]
+  eval(call("<-", as.name(this_data), read.csv(paste0(data_path, datasets[[i]]), header=T)))
+  print(paste(" === ", this_data, " === "))
+  cols <- colnames(eval(as.name(this_data)))
+  if(!("Entity" %in% cols && "Year" %in% cols)) print("ERROR")
+  else print(cols[-(1:3)])
+  print("                                   ")
+}
+```
+
+Let's rename the columns of these datasets, to make them cleaner (plus a small transformation on the *calories* dataset).
+```{r relatedSets_colnames, echo=TRUE}
+colnames(wealth)[4] <- "GNIperCapita"
+colnames(gov_spending)[4] <- "PctGDPGovSpending"
+cats <- c("Family", "Health", "Housing", "Incapacity", "OldAge", "Other",
+          "Survivors", "Unemployment", "ActiveLaborMktPolicy")
+colnames(social_spending)[4:12] <- paste0("SocialSp_", cats)
+colnames(trust)[4] <- "TrustInOthers"
+colnames(inequality)[4:5] <- c("GINI_net", "GINI_raw")
+colnames(bribery)[4] <- "BriberyRate"
+colnames(corr_perc_index)[4] <- "CorruptionPerceptionIndex"
+colnames(human_rights)[4] <- "HumanRightsScore"
+colnames(cooking_fuel)[4] <- "AccessToCleanCookingFuel"
+colnames(PM25)[4] <- "PM25Exposure"
+colnames(open_defecation)[4] <- "OpenDefecationPct"
+colnames(sanitation_access)[4] <- "AccessImprovedSanitationPct"
+colnames(improved_water)[4] <- "ImprovedWaterAccessPct"
+colnames(safe_drinking_water)[4] <- "SafeDrinkingWaterAccessPct"
+cats <- c("Wheat", "Rice", "Barley", "Maize", "Rye", "Oats", "Sorghum")
+colnames(cereals)[4:10] <- paste0("Cereals_", cats)
+colnames(vegetables)[4] <- "VegetablesFoodSupplyPerCapita"
+colnames(fruits)[4] <- "FruitsFoodSupplyPerCapita"
+cats <- c("CerealsGrains", "Pulses", "StarchyRoots", "Sugar", "OilFats", "Meat",
+          "DairyEggs", "FruitVegetables", "Other", "AlcoholicBeverages")
+colnames(diet_composition)[4:13] <- paste0("Diet_", cats)
+colnames(calories)[4:7] <- paste0("Calories_", c("Fat", "Carbohydrates",
+                                                 "AnimalProtein", "PlantProtein"))
+# Transform calories into proportions and a total
+Calories_Total <- rowSums(calories[, 4:7], na.rm=T)
+calories[, 4:7] <- calories[, 4:7] / Calories_Total
+calories <- cbind(calories, Calories_Total)
+```
+
+Let's see if the other datasets have more or less the same number of observations as our *deaths* dataset, to see if we could merge everything in one big set.
+```{r relatedSets_dims, echo=TRUE}
+t(sapply(names(datasets), function(name) dim(eval(as.name(name)))))
+```
+The lengths differ widely, so doing an "inner join" using everything at the same time would probably leave very few observations in the resulting dataset. We're going to have to deal with them one by one.
+
+## Missing values
+
+Do these datasets contain missing values?
+```{r relatedSets_NAs1, echo=TRUE}
+NA_content <- sapply(names(datasets), function(c_) mean(is.na(eval(as.name(c_)))))
+(have_NAs <- NA_content[NA_content > 0])
+```
+
+Let's take a further look at these datasets' distributions of NA's.
+```{r relatedSets_NAs2, echo=TRUE}
+further_checks <- list(social_spending, inequality, cereals, diet_composition)
+na_dist <- t(sapply(further_checks, check_NA_dist))
+rownames(na_dist) <- names(have_NAs)
+na_dist
+for(i in 1:length(further_checks)) {
+  print(paste("===", names(have_NAs)[i], "==="))
+  print(apply(further_checks[[i]], 2, function(v) mean(is.na(v))))
+  print("                   ")
+}
+```
+  
+- *social_spending* has missing values all over the place;
+- *inequality* is only missing a few values in one column;
+- *cereals* has complete data for wheat and rice, and significant amounts of NA's for rye and sorghum. This one will require a bit of digging to see how random the distribution of these missing values is;
+- *diet_composition* is only missing a few data points in one column - the one covering alcoholic beverages. Does this have anything to do with religion? Let's find out!   
+
+Let us start with *social_spending*:
+```{r relatedSets_NAs3, echo=TRUE}
+rows_w_NAs <- apply(social_spending, 1, function(v) sum(is.na(v)))
+table(rows_w_NAs[rows_w_NAs > 0])
+```
+  
+Most lines with missing data are only missing one point. Surgically removing these data points should probably be OK. Let's look at missing values for *inequality*:
+
+```{r relatedSets_NAs4, echo=TRUE, fig.height=8, fig.width=10}
+par(mfrow=c(2,1))
+histMiss(inequality, cex.axis=.7)
+marginplot(inequality[,c("GINI_net", "GINI_raw")])
+```
+  
+The distribution of missing values in *GINI_net* seems to be in line with the distribution of known values in *GINI_raw*, so the presence of NA's probably doesn't contain any predictive information. Let's now look at the *cereals* dataset:
+```{r relatedSets_NAs5, echo=TRUE, fig.height=20, fig.width=10}
+check <- colnames(cereals)[apply(cereals, 2, function(v) sum(is.na(v)) > 0)]
+par(mfrow=c(5,2))
+for(i in 1:length(check)) {
+  marginplot(cereals[,c(check[i], "Cereals_Wheat")])
+  marginplot(cereals[,c(check[i], "Cereals_Rice")])
+}
+```
+  
+Most of the missing values seem to have distributions that differ markedly from the distributions of *Cereals_Wheat* and *Cereals_Rice*, for which we have complete data. This suggests that the missingness of values here contains information in and of itself. We will therefore create new columns indicating whether data is missing or not.
+
+```{r relatedSets_NAs6, echo=TRUE}
+for(i in 1:length(check)) {
+  missing <- check[i]
+  cereals <- cereals %>%
+    mutate(missing_val=as.numeric(is.na(cereals[, missing])))
+  colnames(cereals)[length(colnames(cereals))] <- paste0("Missing_", missing)
+}
+```
+  
+Finally, let's look at *diet_composition*:
+```{r relatedSets_NAs7, echo=TRUE}
+diet_composition %>%
+  filter(is.na(Diet_AlcoholicBeverages)) %>%
+  select(Entity) %>%
+  unique
+```
+  
+We are missing data for this column for a single muslim-majority country. We can probably just ignore these observations when we'll be computing correlations for the *Diet_AlcoholicBeverages* column.
+
+## Correlations
+
+To look at correlations, we will need our normalized *deaths* dataset. This is our previously created *D* object, can we safely merge the latter with the former?
+```{r relatedSets_corr1, echo=TRUE}
+rbind(dim(deaths), dim(D))
+test <- sample(1:dim(D)[1], 10, replace=F)
+cbind(deaths[test, c("Entity", "Year")], D_names=rownames(D)[test], row.names=1:10)
+```
+  
+All good!
+```{r relatedSets_corr2, echo=TRUE}
+norm_deaths <- cbind(deaths[, 1:2], D)
+correlate_dataset <- function(comparison) {
+  compar_df <- comparison %>%
+    as.name %>% eval
+  cols <- colnames(compar_df)[-(1:3)]
+  corr_mat <- sapply(cols, function(this_col) {
+    temp_df <- compar_df[, c("Entity", "Year", this_col)] %>%
+      na.omit %>%
+      inner_join(norm_deaths, by=c("Entity", "Year"))
+    cor_vec <- t(head(cor(temp_df[, -(1:2)]), 1))[-1]
+  })
+  return(corr_mat)
+}
+correlations <- matrix(nrow=32, ncol=0)
+for(n in names(datasets)) correlations <- cbind(correlations, correlate_dataset(n))
+rownames(correlations) <- colnames(deaths)[-(1:2)]
+```
+  
+  
+### Visualization
+
+Now let's visualize the correlations!
+```{r relatedSets_corr3, echo=TRUE, fig.width=10, fig.height=8}
+corr_viz <- function(rng) {
+  superheat(t(correlations)[rng,], heat.pal=brewer.pal(10, "RdBu")[10:1],
+            bottom.label.text.size=4, bottom.label.text.angle = 90,
+            left.label="variable", bottom.label="variable",
+            left.label.text.size=4, n.clusters.rows=3, n.clusters.cols=3,
+            legend.height=.1, heat.lim=c(-1,1), bottom.label.text.alignment="right",
+            bottom.label.size = .5, left.label.text.alignment="right",
+            left.label.size=.3)
+}
+corr_viz(1:18)
+corr_viz(19:36)
+corr_viz(37:52)
+```
+  
+There's quite a lot to unpack in these graphs! Overall, however, they seem to confirm our intuition.
+
+```{r, echo=TRUE}
+
+```
